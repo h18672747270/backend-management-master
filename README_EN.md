@@ -117,5 +117,3 @@ Vue.js wrapper for sChart.js. Github : [vue-schart](https://github.com/lin-xin/v
 ## License
 
 [MIT](https://github.com/lin-xin/vue-manage-system/blob/master/LICENSE)
-
-<!-- cicd -->
