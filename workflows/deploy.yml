@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build-and-deploy:
@@ -16,18 +16,7 @@ jobs:
           npm install
           npm run build
 
-      # 先清空服务器目录，防止旧文件残留
-      - name: 清空服务器目标目录
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            rm -rf /workspace/dist/*
-
-      # 上传 dist 目录内容（index.html、assets 等）到服务器指定目录
-      - name: 上传构建产物到服务器
+      - name: 拷贝构建产物到服务器
         uses: appleboy/scp-action@v0.1.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -36,7 +25,6 @@ jobs:
           source: "dist/*"
           target: "/workspace/dist"
 
-      # 重启 nginx 服务使改动生效
       - name: 重启 Nginx
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -45,32 +33,3 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             systemctl restart nginx
-
-# name: Auto Deploy on Push
-
-# on:
-#   push:
-#     branches: [main] # 监听 main 分支
-
-# jobs:
-#   build-and-deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: 拉取仓库
-#         uses: actions/checkout@v3
-
-#       - name: 构建项目（可选：如需预处理）
-#         run: |
-#           npm install
-#           npm run build
-
-#       - name: 使用 scp 上传到服务器
-#         uses: appleboy/scp-action@master
-#         with:
-#           host: ${{ secrets.SERVER_IP }}
-#           username: root
-#           key: ${{ secrets.SERVER_SSH_KEY }}
-#           source: "dist/*"
-#           target: "/workspace/dist"
-# 111
