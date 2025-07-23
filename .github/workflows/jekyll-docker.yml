@@ -1,35 +1,57 @@
-name: Deploy
+name: Docker Deploy
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 拉代码
-        uses: actions/checkout@v2
+      - name: 拉取代码
+        uses: actions/checkout@v4
 
-      - name: 安装依赖 & 构建
+      - name: 构建 Docker 镜像
         run: |
-          npm install
-          npm run build
+          docker build -t vue-manage-system:${{ github.sha }} .
+          docker tag vue-manage-system:${{ github.sha }} vue-manage-system:latest
 
-      - name: 拷贝构建产物到服务器
-        uses: appleboy/scp-action@v0.1.3
+      - name: 保存 Docker 镜像
+        run: docker save vue-manage-system:latest | gzip > vue-manage-system.tar.gz
+
+      - name: 拷贝镜像到服务器
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: 'dist/*'
-          target: '/workspace/dist'
+          source: 'vue-manage-system.tar.gz'
+          target: '/tmp/'
 
-      - name: 重启 Nginx
-        uses: appleboy/ssh-action@v0.1.6
+      - name: 部署到服务器
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            systemctl restart nginx
+            # 停止并删除旧容器
+            docker stop vue-manage || true
+            docker rm vue-manage || true
+            
+            # 加载新镜像
+            cd /tmp
+            docker load < vue-manage-system.tar.gz
+            
+            # 启动新容器
+            docker run -d \
+              --name vue-manage \
+              --restart unless-stopped \
+              -p 80:80 \
+              vue-manage-system:latest
+            
+            # 清理临时文件
+            rm -f vue-manage-system.tar.gz
+            
+            # 清理旧镜像
+            docker image prune -f
